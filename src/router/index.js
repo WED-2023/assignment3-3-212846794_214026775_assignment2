@@ -1,11 +1,28 @@
+import { createRouter, createWebHistory } from 'vue-router'
 import Main from "../pages/MainPage.vue";
 import NotFound from "../pages/NotFoundPage.vue";
+import ProfilePage from "../pages/ProfilePage.vue";
 
 const routes = [
   {
-    path: "/",
-    name: "main",
-    component: Main,
+    path: '/',
+    name: 'Home',
+    component: Main
+  },
+  {
+    path: '/about',
+    name: 'About',
+    component: () => import('../pages/AboutPage.vue')
+  },
+  {
+    path: '/explore',
+    name: 'Explore',
+    component: () => import('../pages/ExplorePage.vue')
+  },
+  {
+    path: '/create',
+    name: 'Create',
+    component: () => import('../pages/CreatePage.vue')
   },
   {
     path: "/register",
@@ -23,9 +40,31 @@ const routes = [
     component: () => import("../pages/SearchPage.vue"),
   },
   {
-    path: "/recipe/:recipeId",
-    name: "recipe",
-    component: () => import("../pages/RecipeViewPage.vue"),
+    path: "/recipes/:id",
+    name: "RecipePage",
+    component: () => import("../pages/RecipePage.vue"),
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: ProfilePage
+  },
+  {
+    path: '/favorites',
+    name: 'Favorites',
+    component: () => import('../pages/MyFavoritesPage.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/my-recipes',
+    name: 'MyRecipes',
+    component: () => import('../pages/MyRecipesPage.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/family-recipes',
+    name: 'FamilyRecipes',
+    component: () => import('../pages/FamilyRecipesPage.vue'),
   },
   {
     path: "/:catchAll(.*)",
@@ -34,4 +73,9 @@ const routes = [
   }
 ];
 
-export default routes;
+const router = createRouter({
+  history: createWebHistory(process.env.BASE_URL),
+  routes
+})
+
+export default router

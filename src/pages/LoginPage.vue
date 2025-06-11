@@ -1,72 +1,73 @@
 <template>
-  <div class="login-page">
-    <h1>Login</h1>
-    <form @submit.prevent="login">
-      <div class="form-group">
-        <label>Username:</label>
-        <input v-model="state.username" type="text" class="form-control" />
-        <div v-if="v$.username.$error" class="text-danger">
-          Username is required.
+  <div class="flex justify-center items-center min-h-screen bg-[#f9fafb]">
+    <div class="w-full max-w-sm bg-white p-8 rounded-lg shadow-md">
+      <h2 class="text-3xl font-bold text-[#46a080] mb-6 text-center">Welcome Back</h2>
+      <form @submit.prevent="submitLogin" class="space-y-6">
+        <div>
+          <label class="block text-base font-medium text-gray-700 mb-2">Username</label>
+          <input
+            v-model="username"
+            type="text"
+            placeholder="Enter your username"
+            class="w-full px-4 py-3 text-base border border-gray-300 rounded focus:ring-[#46a080] focus:border-[#46a080] focus:outline-none"
+            required
+          />
         </div>
-      </div>
-      <div class="form-group">
-        <label>Password:</label>
-        <input v-model="state.password" type="password" class="form-control" />
-        <div v-if="v$.password.$error" class="text-danger">
-          Password is required (at least 6 characters).
+
+        <div>
+          <label class="block text-base font-medium text-gray-700 mb-2">Password</label>
+          <input
+            v-model="password"
+            type="password"
+            placeholder="••••••••"
+            class="w-full px-4 py-3 text-base border border-gray-300 rounded focus:ring-[#46a080] focus:border-[#46a080] focus:outline-none"
+            required
+          />
         </div>
-      </div>
-      <button type="submit" class="btn btn-primary mt-3">Login</button>
-    </form>
+
+        <div v-if="error" class="text-red-500 text-sm text-center">{{ error }}</div>
+
+        <button
+          type="submit"
+          class="w-full bg-[#46a080] text-lg font-semibold text-white py-3 rounded-md hover:bg-[#3d8f71] transition"
+        >
+          Login
+        </button>
+
+        <div class="text-base text-center text-gray-500 mt-4">
+          Don’t have an account?
+          <router-link to="/register" class="text-[#46a080] hover:underline ml-1">Sign up</router-link>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
 <script>
-import { reactive } from 'vue';
-import { useVuelidate } from '@vuelidate/core';
-import { required, minLength } from '@vuelidate/validators';
-
 export default {
-  name: "LoginPage",
-  setup(_, { expose }) {
-    const state = reactive({
+  name: 'LoginPage',
+  data() {
+    return {
       username: '',
       password: '',
-    });
-
-    const rules = {
-      username: { required },
-      password: { required, minLength: minLength(6) },
+      error: ''
     };
-
-    const v$ = useVuelidate(rules, state);
-
-    const login = async () => {
-      if (await v$.value.$validate()) {
-        // קריאה לשרת
-        try {
-          await window.axios.post('/login', {
-            username: state.username,
-            password: state.password
-          });
-          window.store.login(state.username);
-          window.router.push('/main');
-        } catch (err) {
-          window.toast("Login failed", err.response.data.message, "danger");
-        }
+  },
+  computed: {
+    store() {
+      return this.$root.$.appContext.config.globalProperties.store;
+    }
+  },
+  methods: {
+    async submitLogin() {
+      this.error = '';
+      try {
+        await this.store.login({ username: this.username, password: this.password });
+        this.$router.push('/');
+      } catch (err) {
+        this.error = err?.response?.data?.message || 'Login failed. Please try again.';
       }
-    };
-
-    expose({ login });
-
-    return { state, v$, login };
+    }
   }
 };
 </script>
-
-<style scoped>
-.login-page {
-  max-width: 400px;
-  margin: auto;
-}
-</style>
