@@ -5,7 +5,8 @@
         <!-- Left: Logo & Common Tabs -->
         <div class="flex items-center">
           <router-link to="/" class="flex items-center mr-6">
-            <span class="text-2xl font-bold text-[#46a080]">RecipeApp</span>
+            <img :src="logoSrc" alt="RecipeMaster Logo" class="h-8 w-8 mr-2"/>
+            <span class="text-2xl font-bold text-[#46a080]">RecipeMaster</span>
           </router-link>
           <div class="hidden sm:flex sm:space-x-8">
             <router-link to="/" class="nav-tab">Home</router-link>
@@ -19,6 +20,11 @@
           <template v-if="store.isAuthenticated">
             <span class="text-sm font-medium text-gray-700">Hello, {{ store.user?.username }}</span>
             <button @click="openCreateRecipeModal" class="nav-tab">Create Recipe</button>
+
+            <!-- Meal Plan Link with Count -->
+            <router-link to="/meal-plan" class="nav-tab relative">
+              Meal Plan
+            </router-link>
 
             <div class="relative">
               <button @click="toggleUserMenu" class="text-sm text-gray-700 hover:text-[#46a080]">
@@ -46,12 +52,19 @@
 </template>
 
 <script>
+import { ref } from 'vue';
+import logo from '@/assets/logo.png'; // Import the logo image
+
 export default {
   name: 'AppHeader',
-  data() {
+  setup() {
+    const isUserMenuOpen = ref(false);
+    const logoSrc = logo; // Assign the imported logo to a reactive variable
+
     return {
-      isUserMenuOpen: false
-    }
+      isUserMenuOpen,
+      logoSrc,
+    };
   },
   computed: {
     store() {
@@ -70,9 +83,6 @@ export default {
       this.isUserMenuOpen = false;
     },
     openCreateRecipeModal() {
-      // This will be handled by the parent component (e.g., App.vue or a layout component)
-      // that renders both AppHeader and RecipeModal.
-      // For now, we will just emit an event.
       this.$emit('openCreateRecipeModal');
     }
   }

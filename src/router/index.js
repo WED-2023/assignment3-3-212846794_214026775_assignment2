@@ -14,11 +14,11 @@ const routes = [
     name: 'About',
     component: () => import('../pages/AboutPage.vue')
   },
-  {
-    path: '/explore',
-    name: 'Explore',
-    component: () => import('../pages/ExplorePage.vue')
-  },
+  // {
+  //   path: '/explore',
+  //   name: 'Explore',
+  //   component: () => import('../pages/ExplorePage.vue')
+  // },
   {
     path: '/create',
     name: 'Create',
@@ -65,6 +65,19 @@ const routes = [
     path: '/family-recipes',
     name: 'FamilyRecipes',
     component: () => import('../pages/FamilyRecipesPage.vue'),
+  },
+  {
+    path: '/recipes/:id/prepare/:planId?',
+    name: 'RecipePreparation',
+    component: () => import('../views/RecipePreparation.vue'),
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/meal-plan',
+    name: 'MealPlan',
+    component: () => import('../views/MealPlan.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: "/:catchAll(.*)",

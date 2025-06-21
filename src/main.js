@@ -11,18 +11,26 @@ import store from './store';
 import './assets/main.css';
 import { createToast } from './components/Toast';
 
-// 🔥 ADD THIS LINE TO ENABLE COOKIES IN REQUESTS
+// Configure axios
+axios.defaults.baseURL = 'http://localhost:3000';
 axios.defaults.withCredentials = true;
 
 const app = createApp(App);
 
 app.use(router);
 app.use(VueAxios, axios);
-app.use(store);
 
+// Make store and toast available globally
 app.config.globalProperties.store = store;
-app.config.globalProperties.router = router;
 app.config.globalProperties.toast = createToast;
+
+// Check authentication status before mounting the app
+store.checkAuth().then(() => {
+  app.mount('#app');
+}).catch(error => {
+  console.error('Error checking authentication:', error);
+  app.mount('#app');
+});
 
 // Add Google Fonts
 const link = document.createElement('link');
@@ -35,5 +43,3 @@ const fontLink = document.createElement('link');
 fontLink.rel = 'stylesheet';
 fontLink.href = 'https://fonts.googleapis.com/css2?display=swap&family=Noto+Sans:wght@400;500;700;900&family=Plus+Jakarta+Sans:wght@400;500;700;800';
 document.head.appendChild(fontLink);
-
-app.mount('#app');

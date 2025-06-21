@@ -25,7 +25,7 @@
 
       <!-- Development Journey -->
       <div class="bg-white rounded-lg shadow-lg p-8 mb-8">
-        <h2 class="text-2xl font-bold text-[#0c1c17] mb-4">Development Journey</h2>
+        <h2 class="text-2xl font-bold text-[#0c1c17] mb-4">Precious Development </h2>
         <div class="space-y-6">
           <div class="border-l-4 border-[#46a080] pl-4">
             <h3 class="text-xl font-semibold text-[#0c1c17] mb-2">Assignment 1</h3>

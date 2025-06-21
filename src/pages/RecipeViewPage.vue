@@ -67,11 +67,6 @@ export default {
     const recipeId = this.$route.params.id;
     try {
       this.recipe = await store.fetchRecipeById(recipeId);
-      // Mark recipe as watched if user is authenticated
-      if (store.isAuthenticated) {
-        await store.markAsWatched(recipeId);
-        console.log(`Recipe ${recipeId} marked as watched.`);
-      }
     } catch (err) {
       console.error('Failed to load recipe:', err);
     }

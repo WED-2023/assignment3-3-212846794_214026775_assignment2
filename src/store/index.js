@@ -1,5 +1,46 @@
 import { reactive } from 'vue';
 import { auth, recipes, users } from '../services/api';
+import axios from 'axios';
+
+// Cache configuration
+const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const SEARCH_DEBOUNCE_DELAY = 500; // 500ms debounce delay
+
+// Cache management functions
+const cacheManager = {
+  set(key, data) {
+    const cacheItem = {
+      data,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(key, JSON.stringify(cacheItem));
+  },
+
+  get(key) {
+    const item = localStorage.getItem(key);
+    if (!item) return null;
+
+    const cacheItem = JSON.parse(item);
+    if (Date.now() - cacheItem.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return cacheItem.data;
+  },
+
+  remove(key) {
+    localStorage.removeItem(key);
+  }
+};
+
+// Debounce function
+function debounce(fn, delay) {
+  let timeoutId;
+  return function (...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
 
 const store = reactive({
   username: localStorage.getItem('username') || '',
@@ -12,7 +53,7 @@ const store = reactive({
   currentRecipe: null,
   searchResults: [],
   server_domain: "http://localhost:3000",
-  isAuthenticated: false,
+  isAuthenticated: localStorage.getItem('isAuthenticated') === 'true',
   familyRecipes: [],
 
   // Auth methods
@@ -36,6 +77,7 @@ const store = reactive({
       
       // Store in localStorage
       localStorage.setItem('username', this.username);
+      localStorage.setItem('isAuthenticated', 'true');
       
       console.log('Store: Login successful, initializing data');
       
@@ -136,15 +178,8 @@ const store = reactive({
     this.familyRecipes = [];
 
     // Clear localStorage
-    localStorage.clear();
-
-    // Clear sessionStorage
-    sessionStorage.clear();
-
-    // Clear any cookies
-    document.cookie.split(";").forEach(function(c) { 
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-    });
+    localStorage.removeItem('username');
+    localStorage.removeItem('isAuthenticated');
 
     // Call the API logout
     auth.logout();
@@ -168,6 +203,24 @@ const store = reactive({
     } catch (error) {
       console.error('Store: Error initializing data:', error);
       throw error;
+    }
+  },
+
+  // Check authentication status on app start
+  async checkAuth() {
+    if (this.isAuthenticated && this.username) {
+      try {
+        await this.fetchUserProfile();
+        await this.initializeData();
+      } catch (error) {
+        // Only log out if the backend says the session is invalid (401)
+        if (error && error.response && error.response.status === 401) {
+          this.logout();
+        } else {
+          // For other errors, keep the user logged in and log the error
+          console.error('Store: Error checking auth status (not 401):', error);
+        }
+      }
     }
   },
 
@@ -251,28 +304,30 @@ const store = reactive({
 
   async fetchRecipeById(id) {
     try {
+      // Check cache first
+      const cacheKey = `recipe_${id}`;
+      const cachedRecipe = cacheManager.get(cacheKey);
+      if (cachedRecipe) {
+        console.log('Using cached recipe data for:', id);
+        this.currentRecipe = cachedRecipe;
+        return cachedRecipe;
+      }
+
       console.log('Fetching recipe by ID:', id);
       const response = await recipes.getById(id);
       console.log('Raw Recipe API response:', response);
       
-      // Transform the recipe data to ensure consistent format
+      // Transform the recipe data
       const recipeData = {
-        ...response.data, // Access the data property of the response
+        ...response.data,
         isVegan: Boolean(response.data.vegan || response.data.isVegan),
         isVegetarian: Boolean(response.data.vegetarian || response.data.isVegetarian),
         isGlutenFree: Boolean(response.data.glutenFree || response.data.isGlutenFree),
-        
-        // Ensure extendedIngredients is an array
         extendedIngredients: response.data.extendedIngredients || [],
-        
-        // Ensure instructions and summary are separate
         instructions: response.data.instructions || '',
         summary: response.data.summary || '',
-
-        // Add preparationMinutes and cookingMinutes for consistency
         preparationMinutes: response.data.preparationMinutes || 0,
         cookingMinutes: response.data.cookingMinutes || 0,
-
         popularity: response.data.popularity || response.data.spoonacularScore || 0,
         dishTypes: response.data.dishTypes || [],
         healthScore: response.data.healthScore || 0,
@@ -283,6 +338,9 @@ const store = reactive({
         analyzedInstructions: response.data.analyzedInstructions || []
       };
 
+      // Cache the transformed data
+      cacheManager.set(cacheKey, recipeData);
+      
       console.log('Transformed recipe data:', recipeData);
       this.currentRecipe = recipeData;
       return recipeData;
@@ -351,34 +409,94 @@ const store = reactive({
     }
   },
 
-  async searchRecipes(options) {
+  // Debounced search function
+  searchRecipes: debounce(async function(options) {
     try {
       console.log('Store: Searching recipes with options:', options);
-      const response = await recipes.search(options);
+      
+      // Don't search if query is empty or only whitespace
+      if (!options.query?.trim()) {
+        console.log('Store: Empty search query, clearing results');
+        this.searchResults = [];
+        return [];
+      }
+
+      // Create a cache key based on search parameters
+      const cacheKey = `search_${JSON.stringify(options)}`;
+      const cachedResults = cacheManager.get(cacheKey);
+      
+      if (cachedResults) {
+        console.log('Store: Using cached search results');
+        this.searchResults = cachedResults;
+        return cachedResults;
+      }
+
+      // Ensure all search parameters are properly formatted
+      const searchOptions = {
+        query: options.query.trim(),
+        limit: options.limit || 5,
+        cuisine: options.cuisine || '',
+        diet: options.diet || '',
+        intolerance: options.intolerance || '',
+        sort: options.sort || '',
+        sortDirection: options.sortDirection || 'asc'
+      };
+
+      console.log('Store: Sending search request with options:', searchOptions);
+      const response = await recipes.search(searchOptions);
       console.log('Store: Search response:', response);
       
-      // The backend returns { success: true, data: [...] }
-      if (response && response.data && Array.isArray(response.data.data)) {
-        this.searchResults = response.data.data.map(recipe => ({
+      if (response?.data) {
+        const transformedResults = Array.isArray(response.data) 
+          ? response.data 
+          : (response.data.data || []);
+
+        const processedResults = transformedResults.map(recipe => ({
           ...recipe,
           isVegan: Boolean(recipe.isVegan || recipe.vegan),
           isVegetarian: Boolean(recipe.isVegetarian || recipe.vegetarian),
           isGlutenFree: Boolean(recipe.isGlutenFree || recipe.glutenFree)
-          // totalResults, offset, number are on the top-level response, not per recipe.
-          // If needed in the UI, they should be stored separately, e.g., in a searchMeta object.
         }));
-        console.log('Store: Search results updated:', this.searchResults);
-        return this.searchResults;
+
+        // Cache the transformed results
+        cacheManager.set(cacheKey, processedResults);
+        
+        this.searchResults = processedResults;
+        console.log('Store: Processed search results:', processedResults);
+        return processedResults;
       }
       
-      console.warn('Store: Invalid search response format:', response);
       this.searchResults = [];
       return [];
     } catch (error) {
       console.error('Store: Error searching recipes:', error);
       this.searchResults = [];
-      throw error;
+      
+      // Handle specific API errors
+      if (error.response) {
+        switch (error.response.status) {
+          case 402:
+            throw new Error('API quota exceeded. Please try again later or contact support.');
+          case 401:
+            throw new Error('API authentication failed. Please check your API key.');
+          case 429:
+            throw new Error('Too many requests. Please try again later.');
+          default:
+            throw new Error(error.response.data?.message || 'Failed to search recipes. Please try again.');
+        }
+      }
+      
+      throw new Error('Failed to search recipes. Please check your connection and try again.');
     }
+  }, SEARCH_DEBOUNCE_DELAY),
+
+  // Clear search cache
+  clearSearchCache() {
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('search_')) {
+        cacheManager.remove(key);
+      }
+    });
   },
 
   // User methods
@@ -507,24 +625,68 @@ const store = reactive({
 
   async fetchFamilyRecipes() {
     try {
-      if (!this.isAuthenticated || !this.username) {
+      if (!this.isAuthenticated) {
         throw new Error('User not authenticated');
       }
-      console.log('Store: Attempting to fetch family recipes for user:', this.username);
-      const response = await users.getFamilyRecipes(this.username);
-      console.log('Store: Family Recipes response:', response);
-      if (response && response.data && Array.isArray(response.data)) {
-        this.familyRecipes = response.data;
-        console.log('Store: Successfully fetched family recipes');
-      } else {
-        console.warn('Store: Invalid family recipes response format:', response);
-        this.familyRecipes = [];
-      }
+      console.log('Store: Fetching family recipes...');
+      const response = await axios.get(`${this.server_domain}/api/family`);
+      this.familyRecipes = response.data;
+      console.log('Store: Family recipes fetched successfully:', this.familyRecipes);
       return this.familyRecipes;
     } catch (error) {
       console.error('Store: Error fetching family recipes:', error);
       this.familyRecipes = [];
       throw error;
+    }
+  },
+
+  async createFamilyRecipe(recipeData) {
+    if (!this.isAuthenticated) {
+      throw new Error('User must be logged in to create family recipes');
+    }
+    console.log('Creating family recipe:', recipeData);
+    try {
+      const response = await axios.post(
+        `${this.server_domain}/api/family`,
+        {
+          title: recipeData.title,
+          owner: recipeData.owner,
+          occasion: recipeData.occasion,
+          ingredients: recipeData.ingredients,
+          instructions: recipeData.instructions,
+          image: recipeData.image,
+          notes: recipeData.notes,
+          base_recipe_id: recipeData.base_recipe_id
+        },
+        {
+          withCredentials: true
+        }
+      );
+      console.log('Family recipe created successfully:', response.data);
+      // Add the new recipe to the local state
+      this.familyRecipes.push({
+        ...recipeData,
+        family_recipe_id: Date.now(), // Temporary ID until we get the real one from the backend
+        user_id: this.user.user_id
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating family recipe:', error);
+      throw error;
+    }
+  },
+
+  // Clear cache for a specific recipe or all recipes
+  clearRecipeCache(recipeId = null) {
+    if (recipeId) {
+      cacheManager.remove(`recipe_${recipeId}`);
+    } else {
+      // Clear all recipe-related cache
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('recipe_') || key.startsWith('search_')) {
+          cacheManager.remove(key);
+        }
+      });
     }
   }
 });

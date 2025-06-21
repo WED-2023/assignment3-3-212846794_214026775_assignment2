@@ -1,8 +1,8 @@
 <template>
-  <div class="grid grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-3">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-8 p-4">
     <RecipePreview 
       v-for="recipe in recipes" 
-      :key="recipe.id" 
+      :key="recipe.id || recipe.recipe_id" 
       :recipe="recipe"
       class="recipe-preview"
     />
@@ -28,7 +28,7 @@ export default {
 
 <style lang="scss" scoped>
 .recipe-preview {
-  transition: transform 0.2s ease-in-out;
+  transition: all 0.3s ease-in-out;
   
   &:hover {
     transform: translateY(-4px);

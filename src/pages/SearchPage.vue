@@ -3,7 +3,7 @@
     <div class="layout-container flex h-full grow flex-col">
       <AppHeader />
       <div class="px-40 flex flex-1 justify-center py-5">
-        <div class="layout-content-container flex flex-col max-w-[1200px] flex-1">
+        <div class="layout-content-container flex flex-col max-w-[960px] flex-1">
           <!-- Search Input Section -->
           <div class="flex flex-wrap items-end gap-4 px-4 py-3">
             <label class="flex flex-col min-w-40 flex-1">
@@ -100,10 +100,11 @@
   </template>
 
 <script>
-import { getCurrentInstance, ref, watch, onMounted } from 'vue';
+import { getCurrentInstance, ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import RecipePreviewList from '../components/RecipePreviewList.vue';
 import RecipePreview from '../components/RecipePreview.vue';
+import { createToast } from '@/components/Toast';
 
 export default {
   name: 'SearchPage',
@@ -114,7 +115,7 @@ export default {
   setup() {
     const internalInstance = getCurrentInstance();
     const store = internalInstance.appContext.config.globalProperties.store;
-    const toast = internalInstance.appContext.config.globalProperties.toast;
+    const toast = createToast;
     const route = useRoute();
     const router = useRouter();
 
@@ -153,16 +154,7 @@ export default {
     const isLoading = ref(false);
     const hasSearched = ref(false);
 
-    const search = async () => {
-      if (!searchQuery.value.trim()) {
-        store.searchResults = [];
-        hasSearched.value = true;
-        return;
-      }
-      isLoading.value = true;
-      hasSearched.value = true;
-      
-      // Save search parameters to localStorage
+    const saveSearchParams = () => {
       localStorage.setItem('searchQuery', searchQuery.value);
       localStorage.setItem('searchLimit', limit.value.toString());
       localStorage.setItem('searchCuisine', selectedCuisine.value);
@@ -170,10 +162,26 @@ export default {
       localStorage.setItem('searchIntolerance', selectedIntolerance.value);
       localStorage.setItem('searchSortBy', sortBy.value);
       localStorage.setItem('searchSortDirection', sortDirection.value);
+    };
+
+    const search = async () => {
+      const trimmedQuery = searchQuery.value.trim();
+      if (!trimmedQuery) {
+        store.searchResults = [];
+        hasSearched.value = true;
+        return;
+      }
+
+      isLoading.value = true;
+      hasSearched.value = true;
+      
+      // Save search parameters
+      saveSearchParams();
 
       try {
-        await store.searchRecipes({
-          query: searchQuery.value,
+        console.log('SearchPage: Initiating search with query:', trimmedQuery);
+        const results = await store.searchRecipes({
+          query: trimmedQuery,
           limit: limit.value,
           cuisine: selectedCuisine.value,
           diet: selectedDiet.value,
@@ -181,17 +189,45 @@ export default {
           sort: sortBy.value,
           sortDirection: sortDirection.value
         });
-        console.log('SearchPage: store.searchResults after search:', store.searchResults);
+
+        console.log('SearchPage: Search results:', results);
+        
+        if (!results || results.length === 0) {
+          toast('Info', 'No recipes found matching your criteria', 'info');
+        }
       } catch (error) {
-        toast('Error', 'Failed to search recipes', 'error');
+        console.error('SearchPage: Search error:', error);
+        toast('Error', error.message || 'Failed to search recipes', 'error');
       } finally {
         isLoading.value = false;
       }
     };
 
+    // Watch for changes in search parameters with debouncing
+    let searchTimeout = null;
+    watch([searchQuery, limit, selectedCuisine, selectedDiet, selectedIntolerance, sortBy, sortDirection], 
+      () => {
+        if (searchQuery.value.trim()) {
+          if (searchTimeout) {
+            clearTimeout(searchTimeout);
+          }
+          searchTimeout = setTimeout(() => {
+            search();
+          }, 300); // 300ms debounce delay
+        }
+      }
+    );
+
+    // Clean up timeout on component unmount
+    onUnmounted(() => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    });
+
     const filterByCategory = async (category) => {
       searchQuery.value = category;
-      // Clear other filters when using category buttons for a fresh search
+      // Clear other filters when using category buttons
       selectedCuisine.value = '';
       selectedDiet.value = '';
       selectedIntolerance.value = '';
@@ -200,7 +236,7 @@ export default {
       router.push({ name: 'search', query: { q: category } });
     };
 
-    // Watch for changes in the route query and update searchQuery
+    // Watch for changes in the route query
     watch(() => route.query.q, async (newQ) => {
       searchQuery.value = newQ || '';
       if (searchQuery.value) {
@@ -222,10 +258,11 @@ export default {
         selectedIntolerance.value = '';
         sortBy.value = '';
         sortDirection.value = 'asc';
+        store.clearSearchCache(); // Clear search cache when resetting
       }
     }, { immediate: true });
 
-    // On mount, if there is a query, perform the search
+    // On mount
     onMounted(async () => {
       // Load last search parameters from localStorage if no query in URL
       if (!route.query.q && localStorage.getItem('searchQuery')) {
@@ -236,12 +273,12 @@ export default {
         selectedIntolerance.value = localStorage.getItem('searchIntolerance') || '';
         sortBy.value = localStorage.getItem('searchSortBy') || '';
         sortDirection.value = localStorage.getItem('searchSortDirection') || 'asc';
-      if (searchQuery.value) {
-        await search();
+        if (searchQuery.value) {
+          await search();
         }
       }
 
-      // Also fetch trending recipes
+      // Fetch trending recipes
       try {
         await store.fetchTrendingRecipes();
       } catch (error) {

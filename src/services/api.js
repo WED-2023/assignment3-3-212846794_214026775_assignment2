@@ -82,16 +82,26 @@ export const recipes = {
   create: data => api.post('/recipes', data),
   update: (id, data) => api.put(`/recipes/${id}`, data),
   delete: id => api.delete(`/recipes/${id}`),
-  search: ({ query, limit, cuisine, diet, intolerance, sort, sortDirection }) => {
+  search: options => {
+    console.log('API: Search options received:', options);
     const params = new URLSearchParams();
-    params.append('q', query);
-    if (limit) params.append('limit', limit);
-    if (cuisine) params.append('cuisine', cuisine);
-    if (diet) params.append('diet', diet);
-    if (intolerance) params.append('intolerance', intolerance);
-    if (sort) params.append('sort', sort);
-    if (sortDirection) params.append('sortDirection', sortDirection);
-    return api.get(`/recipes/search?${params.toString()}`);
+    
+    // Always include the query parameter if it exists
+    if (options.query) {
+      params.append('query', options.query.trim());
+    }
+    
+    // Add other parameters only if they have values
+    if (options.limit) params.append('limit', options.limit);
+    if (options.cuisine) params.append('cuisine', options.cuisine);
+    if (options.diet) params.append('diet', options.diet);
+    if (options.intolerance) params.append('intolerance', options.intolerance);
+    if (options.sort) params.append('sort', options.sort);
+    if (options.sortDirection) params.append('sortDirection', options.sortDirection);
+    
+    const url = `/recipes/search?${params.toString()}`;
+    console.log('API: Search URL:', url);
+    return api.get(url);
   },
   getTrending: () => api.get('/recipes/trending'),
   getPopular: () => api.get('/recipes/popular'),

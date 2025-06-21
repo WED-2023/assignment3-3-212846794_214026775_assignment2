@@ -1,51 +1,83 @@
 <template>
-  <div class="bg-white rounded-lg shadow hover:shadow-lg transition p-4 w-full max-w-md relative">
-    <div class="relative cursor-pointer group" @click="goToRecipe">
+  <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden w-full max-w-md relative group">
+    <!-- Recipe Image with Overlay -->
+    <div class="relative cursor-pointer" @click="goToRecipe">
       <img
-      :src="recipe.image || '/deafult_recipe_image.png'"
+        :src="recipe.image || defaultRecipeImage"
         alt="Recipe Image"
-        class="rounded-lg w-full h-48 object-cover group-hover:opacity-80 transition"
+        class="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-105"
       />
-      <span
-        class="absolute bottom-2 left-2 bg-black text-white text-xs px-2 py-1 rounded opacity-75 group-hover:opacity-100"
-      >
-        Click to view
+      <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
+        <span class="text-white text-sm font-medium p-4">
+          Click to view recipe
       </span>
+      </div>
     </div>
 
-    <h3 class="text-xl font-semibold mt-3">{{ recipe.title }}</h3>
+    <!-- Recipe Content -->
+    <div class="p-5">
+      <!-- Title -->
+      <h3 class="text-xl font-bold text-gray-800 mb-3 line-clamp-2">{{ recipe.title }}</h3>
 
-    <div class="text-gray-600 text-sm mt-1">
-      <p>⏱️ {{ recipe.readyInMinutes }} minutes</p>
-      <p v-if="recipe.preparationMinutes || recipe.cookingMinutes">
-        Preparation: {{ recipe.preparationMinutes || 0 }} min, Cooking: {{ recipe.cookingMinutes || 0 }} min
-      </p>
-      <p>🍽️ {{ recipe.servings || 0 }} servings</p>
-      <p>❤️ {{ recipe.popularity || 0 }} likes</p>
+      <!-- Recipe Info -->
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="flex items-center text-gray-600">
+          <i class="far fa-clock mr-2"></i>
+          <span>{{ recipe.readyInMinutes }} min</span>
+        </div>
+        <div class="flex items-center text-gray-600">
+          <i class="fas fa-utensils mr-2"></i>
+          <span>{{ recipe.servings || 0 }} servings</span>
+        </div>
+        <div v-if="recipe.preparationMinutes || recipe.cookingMinutes" class="flex items-center text-gray-600 col-span-2">
+          <i class="fas fa-tasks mr-2"></i>
+          <span>Prep: {{ recipe.preparationMinutes || 0 }} min, Cook: {{ recipe.cookingMinutes || 0 }} min</span>
+        </div>
+        <div v-if="recipe.popularity" class="flex items-center text-gray-600">
+          <i class="fas fa-heart mr-2 text-red-500"></i>
+          <span>{{ recipe.popularity }} likes</span>
+        </div>
+      </div>
+
+      <!-- Family Recipe Info -->
+      <div v-if="recipe.owner || recipe.occasion" class="mb-4">
+        <div v-if="recipe.owner" class="flex items-center text-[#46a080] mb-2">
+          <i class="fas fa-users mr-2"></i>
+          <span>{{ recipe.owner }}</span>
+        </div>
+        <div v-if="recipe.occasion" class="flex items-center text-[#46a080]">
+          <i class="fas fa-calendar-alt mr-2"></i>
+          <span>{{ recipe.occasion }}</span>
+        </div>
     </div>
 
-    <div class="text-gray-700 text-sm mt-2 line-clamp-3">
+      <!-- Summary -->
+      <p class="text-gray-600 text-sm mb-4 line-clamp-3">
       {{ recipe.summary ? stripHtml(recipe.summary) : 'No summary available.' }}
+      </p>
+
+      <!-- Tags -->
+      <div class="flex flex-wrap gap-2 mb-4">
+        <span v-if="recipe.isVegan" class="bg-green-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow">Vegan</span>
+        <span v-if="recipe.isVegetarian" class="bg-yellow-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow">Vegetarian</span>
+        <span v-if="recipe.isGlutenFree" class="bg-purple-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow">Gluten-Free</span>
+        <span v-if="isWatched" class="bg-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow">Watched</span>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2 mt-2 text-xs">
-      <span v-if="recipe.isVegan" class="bg-green-100 text-green-800 px-2 py-1 rounded">Vegan</span>
-      <span v-if="recipe.isVegetarian" class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Vegetarian</span>
-      <span v-if="recipe.isGlutenFree" class="bg-purple-100 text-purple-800 px-2 py-1 rounded">Gluten-Free</span>
-      <span v-if="isWatched" class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Watched</span>
-    </div>
-
+      <!-- Action Button -->
     <button
       @click.stop="toggleFavorite"
       :class="[
         isFavorite
-          ? 'bg-gray-500 hover:bg-gray-600'
-          : 'bg-red-500 hover:bg-red-600',
-        'mt-3 text-sm text-white px-3 py-1 rounded transition'
+            ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+            : 'bg-red-500 hover:bg-red-600 text-white',
+          'w-full py-2 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 font-medium'
       ]"
     >
-      {{ isFavorite ? '❤️ Remove from Favorites' : '❤️ Add to Favorites' }}
+        <i :class="isFavorite ? 'fas fa-heart' : 'far fa-heart'"></i>
+        {{ isFavorite ? 'Remove from Favorites' : 'Add to Favorites' }}
     </button>
+    </div>
   </div>
 </template>
 
@@ -53,6 +85,7 @@
 import { useRouter } from 'vue-router';
 import store from '@/store';
 import { computed } from 'vue';
+import defaultRecipeImage from '@/assets/deafult_recipe_image.png';
 
 export default {
   props: {
@@ -114,14 +147,17 @@ export default {
       return doc.body.textContent || '';
     };
 
-    return { isFavorite, isWatched, addToFavorites, goToRecipe, toggleFavorite, stripHtml, removeFromFavorites };
+    return { isFavorite, isWatched, addToFavorites, goToRecipe, toggleFavorite, stripHtml, removeFromFavorites, defaultRecipeImage };
   }
 };
 </script>
 
 <style scoped>
-.group:hover img {
-  cursor: pointer;
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .line-clamp-3 {
@@ -129,5 +165,9 @@ export default {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.group:hover img {
+  cursor: pointer;
 }
 </style>

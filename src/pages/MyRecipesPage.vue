@@ -33,12 +33,11 @@
         </div>
   
         <!-- Recipes List -->
-        <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-8">
           <RecipePreview
             v-for="recipe in recipes"
-            :key="recipe.id"
+            :key="recipe.id || recipe.recipe_id"
             :recipe="recipe"
-            class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
           />
         </div>
       </div>
